@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Runs{% endblock %}
+
+{% block content %}
+{% if not runs %}
+<section class="welcome">
+  <h1>Find the root cause, not the 10,000th error line.</h1>
+  <p class="lead">
+    VeriMind reads the logs from a regression run, groups thousands of error messages into a few
+    distinct problems, and tells you which one to fix first and why.
+  </p>
+  <div class="choices">
+    <a class="choice" href="/upload">
+      <span class="choice-title">Upload your logs</span>
+      <span class="choice-text">Drag in log files or a .zip from one regression run.</span>
+    </a>
+    <form class="choice" method="post" action="/demo">
+      <button type="submit" class="choice-button">
+        <span class="choice-title">Try it with demo data</span>
+        <span class="choice-text">Load four example nightly regressions and see the results in seconds.</span>
+      </button>
+    </form>
+  </div>
+</section>
+{% else %}
+<div class="page-head">
+  <div>
+    <h1>Runs</h1>
+    <p class="muted">Each run is one set of regression logs. Open a run to see its problems, ranked.</p>
+  </div>
+  <div class="actions">
+    {% if not demo_loaded %}
+      <form method="post" action="/demo"><button class="button secondary" type="submit">Load demo data</button></form>
+    {% endif %}
+    <a class="button" href="/upload">Upload logs</a>
+  </div>
+</div>
+{% include "_runs_table.html" %}
+{% endif %}
+{% endblock %}

@@ -1,12 +1,70 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "verimind4"
+name = "verimind"
 version = "0.1.0"
-description = "VeriMind4 - Context-Aware RTL Verification Intelligence Platform"
-requires-python = ">=3.10"
+description = "Triage RTL verification logs: turn thousands of simulation logs into a ranked list of root-cause issues."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "sqlalchemy>=2.0.30",
+    "psycopg[binary]>=3.2",
+    "typer>=0.12",
+    "pyyaml>=6.0",
+    "alembic>=1.13",
+    "scikit-learn>=1.4",
+    "anthropic>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "httpx>=0.27",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-PyYAML>=6.0",
+    "playwright>=1.47",
+    "pip-audit>=2.7",
+    "pre-commit>=3.7",
+]
+
+[project.scripts]
+verimind = "verimind.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+verimind = ["web/templates/**/*.html", "web/static/**/*", "engine/formats/*.yaml", "db/migrations/script.py.mako"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-q"
+markers = ["e2e: browser tests against a running VeriMind (set VERIMIND_E2E_URL)"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]  # line length is handled by `ruff format`; long string literals are left intact
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option", "fastapi.File", "fastapi.Form", "fastapi.Query", "fastapi.Depends"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["verimind"]
+mypy_path = "src"
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]

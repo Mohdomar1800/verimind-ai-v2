@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Problem #{{ issue.rank }} · {{ run.name }}{% endblock %}
+
+{% block content %}
+{% set cat_label, cat_help = CATEGORY_LABELS.get(issue.category, (issue.category, '')) %}
+<div class="page-head">
+  <div>
+    <p class="crumbs"><a href="/">Runs</a> / <a href="/runs/{{ run.id }}">{{ run.name }}</a> /</p>
+    <h1>Problem #{{ issue.rank }}</h1>
+    <p class="issue-top">
+      <span class="cat cat-{{ issue.category }}" title="{{ cat_help }}">{{ cat_label }}</span>
+      {% if issue.history in HISTORY_LABELS %}{% set h_label, h_tone, h_help = HISTORY_LABELS[issue.history] %}<span class="badge {{ h_tone }}" title="{{ h_help }}">{{ h_label }}</span>{% endif %}
+      <span class="muted">{{ issue.test_count | plural("test") }} affected · score {{ issue.score | round | int }}</span>
+    </p>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="/runs/{{ run.id }}/tests?issue={{ issue.id }}">Show these tests</a>
+  </div>
+</div>
+
+<section class="card">
+  <h2 class="issue-title big">{{ issue.title | signature }}</h2>
+  <p class="issue-example"><code>{{ issue.example_message }}</code></p>
+  <h3>Why it's ranked #{{ issue.rank }}</h3>
+  <ul class="reasons">{% for r in issue.reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+  <dl class="facts">
+    {% if issue.location %}<div><dt>Reported from</dt><dd><code>{{ issue.location }}</code></dd></div>{% endif %}
+    {% if issue.msg_id %}<div><dt>Message ID</dt><dd><code>{{ issue.msg_id }}</code></dd></div>{% endif %}
+    <div><dt>Severity</dt><dd>{{ issue.severity | lower }}</dd></div>
+    <div><dt>Seen</dt><dd>{{ issue.occurrences | plural("time") }} in total, including follow-on errors</dd></div>
+    {% if issue.modules %}
+    <div><dt>Blocks</dt><dd>{% for m, n in issue.modules.items() %}{{ m }} ({{ n }}){% if not loop.last %}, {% endif %}{% endfor %}</dd></div>
+    {% endif %}
+    {% if issue.followed_by %}
+    <div><dt>Usually followed by</dt><dd>{% for f in issue.followed_by %}{{ f | signature }}{% if not loop.last %}<br>{% endif %}{% endfor %}</dd></div>
+    {% endif %}
+  </dl>
+</section>
+
+{% include "_ai_card.html" %}
+
+<div class="two-col">
+  {% include "_triage_card.html" %}
+
+  <section class="card">
+    <h2>History</h2>
+    {% if history | length > 1 %}
+      <p class="muted">Seen in {{ history | length | plural("run") }}. First seen in
+        <a href="/runs/{{ first_seen.id }}">{{ first_seen.name }}</a>.</p>
+    {% else %}
+      <p class="muted">This is the first run where this problem appears.</p>
+    {% endif %}
+    <ul class="history">
+      {% for h_run, h_issue in history %}
+      <li>
+        {% if h_run.id == run.id %}<strong>{{ h_run.name }}</strong> <span class="muted">(this run)</span>
+        {% else %}<a href="/runs/{{ h_run.id }}/issues/{{ h_issue.id }}">{{ h_run.name }}</a>{% endif %}
+        <span class="muted small">· {{ h_issue.test_count | plural("test") }}, ranked #{{ h_issue.rank }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section>
+  <h2>Affected tests</h2>
+  <p class="muted">Open a test to see its log, starting at the line where it went wrong.</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Test</th><th>Seed</th><th>Block</th><th class="num">Root cause line</th><th class="num">Follow-on errors</th></tr></thead>
+      <tbody>
+        {% for t in tests %}
+        <tr>
+          <td><a class="strong" href="/runs/{{ run.id }}/tests/{{ t.id }}">{{ t.test_name }}</a></td>
+          <td class="muted">{{ t.seed if t.seed is not none else "–" }}</td>
+          <td>{{ t.module }}</td>
+          <td class="num">{{ t.root_line or "–" }}</td>
+          <td class="num">{{ t.follow_on_errors }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

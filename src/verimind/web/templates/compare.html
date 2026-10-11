@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Compare runs{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Compare runs</h1>
+    <p class="muted">See what changed between two regression runs: new problems, ones that are still there, and ones that went away.</p>
+  </div>
+</div>
+
+{% if runs | length < 2 %}
+  <div class="card">
+    <p>You need at least two analyzed runs to compare.</p>
+    <form method="post" action="/demo"><button class="button" type="submit">Load demo data</button></form>
+  </div>
+{% else %}
+<form class="filters card" method="get" action="/compare">
+  <label class="field inline grow">
+    <span class="field-label">Older run</span>
+    <select name="base" data-autosubmit>
+      {% for r in runs %}<option value="{{ r.id }}" {{ 'selected' if base and base.id == r.id }}>{{ r.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field inline grow">
+    <span class="field-label">Newer run</span>
+    <select name="head" data-autosubmit>
+      {% for r in runs %}<option value="{{ r.id }}" {{ 'selected' if head and head.id == r.id }}>{{ r.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <noscript><button class="button" type="submit">Compare</button></noscript>
+</form>
+
+{% if compared is none %}
+  <div class="card muted">Choose two different runs.</div>
+{% else %}
+  <section class="stats compare-stats">
+    <div class="stat"><span class="stat-value text-bad">{{ groups.new | length }}</span><span class="stat-label">new problems</span></div>
+    <div class="stat"><span class="stat-value">{{ groups.recurring | length }}</span><span class="stat-label">still there</span></div>
+    <div class="stat"><span class="stat-value text-ok">{{ groups.resolved | length }}</span><span class="stat-label">went away</span></div>
+  </section>
+
+  {% for key, heading, help in [
+      ('new', 'New problems', 'Not seen in the older run. Usually the first thing to look at: something recent broke it.'),
+      ('recurring', 'Still there', 'Present in both runs. The arrow shows how many tests each one breaks.'),
+      ('resolved', 'Went away', 'Present in the older run but not the newer one: fixed, or not hit this time.')] %}
+  <section>
+    <h2>{{ heading }} <span class="muted">({{ groups[key] | length }})</span></h2>
+    <p class="muted small">{{ help }}</p>
+    {% if groups[key] %}
+    <ul class="compare-list">
+      {% for c in groups[key] %}
+      {% set cat_label, cat_help = CATEGORY_LABELS.get(c.category, (c.category, '')) %}
+      {% set t = triage.get(c.signature_id) %}
+      <li class="card">
+        <div class="issue-top">
+          <span class="cat cat-{{ c.category }}" title="{{ cat_help }}">{{ cat_label }}</span>
+          {% if t and t.status != 'new' %}<span class="badge neutral">Triage: {{ t.status }}</span>{% endif %}
+          <span class="muted small">
+            {% if key == 'recurring' %}{{ c.base_tests }} → {{ c.head_tests }} tests
+            {% elif key == 'new' %}{{ c.head_tests | plural("test") }}
+            {% else %}was {{ c.base_tests | plural("test") }}{% endif %}
+          </span>
+        </div>
+        {% if c.head_issue_id %}
+          <a class="issue-title" href="/runs/{{ head.id }}/issues/{{ c.head_issue_id }}">{{ c.title | signature }}</a>
+        {% else %}
+          <a class="issue-title" href="/runs/{{ base.id }}/issues/{{ c.base_issue_id }}">{{ c.title | signature }}</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">None.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}

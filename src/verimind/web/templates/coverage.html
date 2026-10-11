@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Coverage · {{ run.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="crumbs"><a href="/">Runs</a> / <a href="/runs/{{ run.id }}">{{ run.name }}</a> /</p>
+    <h1>Coverage</h1>
+    <p class="muted">Which scenarios the tests never exercised (coverage holes), what to close first, and the smallest set of tests that keeps almost all of the coverage.</p>
+  </div>
+  {% if cov and not cov.error %}
+  <div class="actions"><a class="button secondary" href="/api/runs/{{ run.id }}/coverage">Download (JSON)</a></div>
+  {% endif %}
+</div>
+
+{% if not cov %}
+  <div class="card">
+    <p>This run has no coverage data.</p>
+    <p class="muted">Upload a <code>coverage.json</code> together with the log files. The guide
+      <code>docs/coverage-format.md</code> in the VeriMind project describes the format and how to export it from your
+      simulator's coverage tool.</p>
+  </div>
+{% elif cov.error %}
+  <div class="alert bad">{{ cov.error }}</div>
+{% else %}
+
+<section class="card">
+  <div class="stats">
+    <div class="stat"><span class="stat-value">{{ cov.percent }}%</span><span class="stat-label">bins hit</span></div>
+    <div class="stat"><span class="stat-value">{{ cov.hit_bins | number }} / {{ cov.total_bins | number }}</span><span class="stat-label">bins</span></div>
+    <div class="stat"><span class="stat-value">{{ cov.holes | length }}</span><span class="stat-label">coverpoints with holes</span></div>
+    <div class="stat"><span class="stat-value">{{ cov.tests_for_target }} of {{ cov.tests_total }}</span><span class="stat-label">tests keep {{ (100 * cov.target) | round | int }}%</span></div>
+  </div>
+  {% for note in cov.notes %}<p class="text-bad small">{{ note }}</p>{% endfor %}
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Coverage by block</h2>
+    <table class="table compact">
+      <tbody>
+        {% for b in cov.blocks %}
+        <tr>
+          <td>{{ b.block }}</td>
+          <td><div class="passbar" title="{{ b.percent }}%"><div style="width: {{ b.percent }}%"></div></div></td>
+          <td class="num">{{ b.percent }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>The fastest test set</h2>
+    <p class="muted small">Tests picked in order of most new coverage per second of simulation (greedy test grading).
+      Running only these keeps {{ (100 * cov.target) | round | int }}% of what the full regression covers, in
+      {{ '%.0f' | format(100 * cov.cpu_for_target / (cov.cpu_total or 1)) }}% of the compute time.</p>
+    <ol class="graded">
+      {% for g in cov.graded[:cov.tests_for_target] %}
+      <li><span class="strong">{{ g.test }}</span> <span class="muted small">seed {{ g.seed }} · +{{ g.new_bins }} bins · {{ g.cumulative_percent }}%</span></li>
+      {% endfor %}
+    </ol>
+    {% if cov.graded | length > cov.tests_for_target %}
+    <p class="muted small">{{ (cov.graded | length) - cov.tests_for_target }} more tests add the last {{ 100 - (100 * cov.target) | round | int }}%; the other
+      {{ cov.tests_total - (cov.graded | length) }} add no coverage that the selected tests don't already have.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section>
+  <h2>Coverage holes, most important first</h2>
+  <p class="muted small">Each row is a coverpoint with bins no test reached. Holes in blocks that are failing rank higher,
+    and so do areas existing tests already partly reach, because a targeted test is cheap there.</p>
+  <ol class="issues">
+    {% for h in cov.holes[:25] %}
+    <li class="issue card">
+      <div class="issue-rank">#{{ loop.index }}</div>
+      <div class="issue-body">
+        <h3 class="issue-title">{{ h.block }} · {{ h.coverpoint }}</h3>
+        <p class="issue-example">Missing: {% for m in h.missing %}<code>{{ m }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+        <ul class="reasons small">{% for r in h.reasons[1:] %}<li>{{ r }}</li>{% endfor %}</ul>
+      </div>
+      <div class="issue-score"><span class="small muted">{{ h.missing | length }} of {{ h.total_bins }} bins</span></div>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+{% endblock %}

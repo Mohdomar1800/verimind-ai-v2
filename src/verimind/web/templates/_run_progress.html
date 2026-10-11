@@ -1,0 +1,19 @@
+{# Polls every second while the run is being analyzed; the server sends HX-Refresh when it's done. #}
+<section id="run-progress" class="card"
+         {% if run.status in ('queued', 'processing') %}hx-get="/runs/{{ run.id }}/progress-card" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+  {% if run.status == 'failed' %}
+    <h2>Analysis failed</h2>
+    <p class="text-bad">{{ run.error or "Something went wrong while analyzing this run." }}</p>
+    <form method="post" action="/runs/{{ run.id }}/reanalyze"><button class="button" type="submit">Try again</button></form>
+  {% else %}
+    {% set pct = job.progress if job else 0 %}
+    <h2>{% if run.status == 'queued' %}Waiting for the analyzer…{% else %}Analyzing {{ run.file_count | plural("log file") }}…{% endif %}</h2>
+    <div class="progress" role="progressbar" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-bar" style="width: {{ pct }}%"></div>
+    </div>
+    <p class="muted small">
+      {{ job.progress_message if job else "Waiting to start" }}
+      {% if run.status == 'queued' %}· If this doesn't start within a minute, check that the worker is running.{% endif %}
+    </p>
+  {% endif %}
+</section>

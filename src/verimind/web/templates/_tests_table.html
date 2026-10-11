@@ -1,0 +1,43 @@
+{% set base_qs = "status=" ~ (filters.status or "") ~ "&module=" ~ (filters.module | urlencode) ~ "&issue=" ~ (filters.issue or "") ~ "&q=" ~ (filters.q | urlencode) %}
+<div id="tests-table">
+  <p class="muted small">{{ total | plural("test") }} match.</p>
+  {% if tests %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>Test</th><th>Result</th><th>Block</th><th>What went wrong</th><th class="num">Lines</th></tr>
+      </thead>
+      <tbody>
+        {% for t in tests %}
+        <tr>
+          <td>
+            <a class="strong" href="/runs/{{ run.id }}/tests/{{ t.id }}">{{ t.test_name }}</a>
+            {% if t.seed is not none %}<div class="muted small">seed {{ t.seed }}</div>{% endif %}
+          </td>
+          <td>
+            {% if t.status == 'fail' %}<span class="badge bad">Failed</span>
+            {% elif t.status == 'pass' %}<span class="badge ok">Passed</span>
+            {% else %}<span class="badge neutral">Unclear</span>{% endif %}
+          </td>
+          <td>{{ t.module }}</td>
+          <td class="wrap">
+            {% if t.root_message %}<code class="small">{{ t.root_message[:110] }}</code>
+            {% else %}<span class="muted small">{{ t.status_reason }}</span>{% endif %}
+          </td>
+          <td class="num muted">{{ t.total_lines | number }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if pages > 1 %}
+  <nav class="pager" aria-label="Pages">
+    {% if page > 1 %}<a class="button secondary" href="/runs/{{ run.id }}/tests?{{ base_qs }}&page={{ page - 1 }}">← Previous</a>{% endif %}
+    <span class="muted">Page {{ page }} of {{ pages }}</span>
+    {% if page < pages %}<a class="button secondary" href="/runs/{{ run.id }}/tests?{{ base_qs }}&page={{ page + 1 }}">Next →</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% else %}
+  <div class="card muted">No tests match these filters.</div>
+  {% endif %}
+</div>

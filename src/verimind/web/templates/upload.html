@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Upload logs{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Upload logs</h1>
+    <p class="muted">Add the log files from one regression run. VeriMind works out the simulator format by itself.</p>
+  </div>
+</div>
+
+{% if error %}<div class="alert bad" role="alert">{{ error }}</div>{% endif %}
+<div id="upload-error" class="alert bad" role="alert" hidden></div>
+
+<form id="upload-form" class="card" method="post" action="/upload" enctype="multipart/form-data">
+  <label id="dropzone" class="dropzone" for="files">
+    <input id="files" name="files" type="file" multiple accept=".log,.out,.txt,.gz,.zip">
+    <span class="dropzone-title">Drop log files, a folder, or a .zip here</span>
+    <span class="dropzone-text">or click to choose files · .log, .out, .txt (also .gz) and .zip</span>
+  </label>
+
+  <div id="file-summary" class="file-summary" hidden>
+    <p><strong id="file-count"></strong> <span class="muted" id="file-size"></span>
+       <button type="button" id="clear-files" class="link-button">Clear</button></p>
+    <ul id="file-list" class="file-list"></ul>
+  </div>
+
+  <label class="field">
+    <span class="field-label">Name for this run <span class="muted">(optional)</span></span>
+    <input name="name" type="text" maxlength="200" placeholder="e.g. Nightly regression, Oct 10">
+  </label>
+
+  <div id="upload-progress" class="progress-block" hidden>
+    <div class="progress"><div id="upload-bar" class="progress-bar" style="width: 0%"></div></div>
+    <p id="upload-status" class="muted small">Uploading…</p>
+  </div>
+
+  <div class="form-actions">
+    <button id="submit" type="submit" class="button">Upload and analyze</button>
+    <a href="/" class="button secondary">Cancel</a>
+  </div>
+</form>
+
+<section class="help">
+  <h2>What happens next?</h2>
+  <ol>
+    <li>Your files are stored on this machine. Nothing is sent anywhere else.</li>
+    <li>VeriMind reads every log, finds the first real error in each failing test, and groups failures that share a cause.</li>
+    <li>You get a ranked list of problems, each with the reason it is ranked there and the exact log lines.</li>
+  </ol>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/upload.js') }}" defer></script>
+{% endblock %}

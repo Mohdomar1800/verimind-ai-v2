@@ -1,0 +1,45 @@
+# Example of a company-specific regression runner ("regrun") with its own log style.
+# Copy this file as a starting point when adding your team's format.
+name: inhouse
+description: In-house regression runner "regrun" (timestamp, level, source, [ID] message)
+extends: [common]
+
+detect:
+  - '^=== regrun '
+  - '^test=\S+ seed=\d+ '
+
+test_name:
+  - '^test=(?P<test>\S+)'
+seed:
+  - '^test=\S+ seed=(?P<seed>\d+)'
+
+end_markers:
+  - '^RESULT: (?:PASSED|FAILED)'
+
+verdict:
+  pass:
+    - '^RESULT: PASSED'
+  fail:
+    - '^RESULT: FAILED'
+
+rules:
+  # 2026-09-04 22:25:44.450 ERROR tb_top.dut.u_fsm.a_state_legal: [ASSERT] FSM entered illegal state (rtl/fsm.sv:163)
+  - name: assertion
+    contains: '[ASSERT]'
+    pattern: '^\S+ \S+ (?P<severity>ERROR|FATAL)\s+(?P<source>\S+): \[ASSERT\] (?P<message>.*?)(?: \((?P<file>[^():]+):(?P<file_line>\d+)\))?$'
+    kind: assertion
+
+  # 2026-09-04 22:14:07.482 FATAL regrun: [CRASH] Simulator exited with signal 11
+  - name: crash
+    contains: '[CRASH]'
+    pattern: '^\S+ \S+ (?P<severity>FATAL|ERROR)\s+(?P<source>\S+): \[(?P<msg_id>CRASH)\] (?P<message>.*)$'
+    kind: crash
+
+  - name: runner_error
+    contains: 'regrun:'
+    pattern: '^\S+ \S+ (?P<severity>FATAL|ERROR)\s+(?P<source>regrun): \[(?P<msg_id>[^\]]+)\] (?P<message>.*)$'
+    kind: tool
+
+  # 2026-09-04 22:25:44.515 ERROR uvm_test_top.env.drv: [RSP_TIMEOUT] Timeout waiting for response ...
+  - name: message
+    pattern: '^\S+ \S+ (?P<severity>INFO|WARN|ERROR|FATAL)\s+(?P<source>\S+): \[(?P<msg_id>[^\]]+)\] (?P<message>.*)$'

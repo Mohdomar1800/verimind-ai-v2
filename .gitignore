@@ -1,22 +1,33 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyd
-*.so
+*.egg-info/
 .venv/
 venv/
-.env
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+build/
+dist/
 
-# Data artifacts
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-*.duckdb
-*.parquet
-*.csv
+# Test output (coverage reports, Playwright browser-test results)
+.coverage
+.coverage.*
+htmlcov/
+test-results/
+playwright-report/
+
+# Local config / secrets (the documented defaults in .env.example are tracked)
+.env
+.env.*
+!.env.example
+
+# Runtime data (uploaded logs, generated datasets)
+storage/
+datasets/
+
+# JavaScript tooling (not used by this project; never commit installed packages)
+node_modules/
 
 # IDE / OS
 .vscode/
@@ -24,6 +35,5 @@ data/processed/*
 .DS_Store
 Thumbs.db
 
-# Runtime
-logs/
-*.log
+# Personal study notes (kept out of the repository)
+study-guide/

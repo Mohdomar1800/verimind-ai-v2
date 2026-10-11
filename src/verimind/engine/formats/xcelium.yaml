@@ -1,0 +1,57 @@
+name: xcelium
+description: Cadence Xcelium (xrun / xmsim) simulation log
+extends: [common]
+
+detect:
+  - '^xrun\(64\):'
+  - 'Cadence Design Systems'
+  - '^xcelium> '
+
+test_name:
+  - '\+UVM_TESTNAME=(?P<test>\S+)'
+seed:
+  - '-svseed (?P<seed>\d+)'
+
+end_markers:
+  - '^Simulation complete via \$finish'
+
+rules:
+  # UVM_ERROR tb/scbd.sv(214) @ 8899 NS: uvm_test_top.env.scbd [SCBD_MISMATCH] Data mismatch ...
+  - name: uvm_message
+    contains: 'UVM_'
+    pattern: '^(?P<severity>UVM_(?:INFO|WARNING|ERROR|FATAL)) (?:(?P<file>\S+)\((?P<file_line>\d+)\) )?@ (?P<time>\d+)(?: (?P<unit>[A-Za-z]+))?: (?P<source>\S+) \[(?P<msg_id>[^\]]+)\] (?P<message>.*)$'
+
+  # xmsim: *E,ASRTST (rtl/fifo.sv,45): (time 1200 NS) Assertion tb_top.dut.u_fifo.a_no_overflow has failed ...
+  #     FIFO overflow: push while full
+  - name: assertion
+    contains: 'ASRTST'
+    pattern: '^xmsim: \*E,ASRTST \((?P<file>[^,]+),(?P<file_line>\d+)\): \(time (?P<time>\d+) (?P<unit>\w+)\) Assertion (?P<source>\S+) has failed'
+    kind: assertion
+    severity: error
+    then:
+      - pattern: '^\s+(?P<message>\S.*)$'
+        optional: true
+
+  # xmsim: *F,INTERR: INTERNAL EXCEPTION   (followed by explanation lines)
+  - name: crash
+    pattern: '^xmsim: \*F,(?P<msg_id>INTERR|SIGSEGV|SIGUSR\w*): (?P<message>.*)$'
+    kind: crash
+    severity: fatal
+    then:
+      - pattern: '^(?!UVM_|xmsim|xcelium>)(?P<detail>\S.*)$'
+        repeat: true
+
+  - name: tool_fatal
+    pattern: '^(?:xrun|xmsim|xmelab|xmvlog): \*F,(?P<msg_id>\w+)(?: \([^)]*\))?: (?P<message>.*)$'
+    kind: tool
+    severity: fatal
+
+  - name: tool_error
+    pattern: '^(?:xrun|xmsim|xmelab|xmvlog): \*E,(?P<msg_id>\w+)(?: \([^)]*\))?: (?P<message>.*)$'
+    kind: tool
+    severity: error
+
+  - name: tool_warning
+    pattern: '^(?:xrun|xmsim|xmelab|xmvlog): \*W,(?P<msg_id>\w+)(?: \([^)]*\))?: (?P<message>.*)$'
+    kind: tool
+    severity: warning

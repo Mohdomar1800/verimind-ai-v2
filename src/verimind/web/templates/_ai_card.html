@@ -1,0 +1,25 @@
+{# Optional Claude explanation. It runs only when the user clicks, and says up front what will be sent. #}
+<section class="card ai-card" id="ai-card">
+  <div class="section-head">
+    <h2>AI explanation <span class="badge neutral">optional</span></h2>
+    {% if ai_enabled %}
+    <form method="post" action="/runs/{{ run.id }}/issues/{{ issue.id }}/explain"
+          hx-post="/runs/{{ run.id }}/issues/{{ issue.id }}/explain" hx-target="#ai-card" hx-swap="outerHTML"
+          hx-indicator="#ai-busy" hx-disabled-elt="find button">
+      <button class="button secondary" type="submit">{{ 'Explain again' if ai_summary else 'Explain with AI' }}</button>
+    </form>
+    {% endif %}
+  </div>
+  <p id="ai-busy" class="htmx-indicator muted small">Asking Claude… this usually takes 10–30 seconds.</p>
+  {% if ai_error %}<div class="alert bad small" role="alert">{{ ai_error }}</div>{% endif %}
+  {% if ai_summary %}
+    <div class="ai-text">{{ ai_summary.text | simple_markdown }}</div>
+    <p class="muted small">Written by {{ ai_summary.model }} {{ ai_summary.created_at | timeago }}. AI can be wrong, so check it against the log.</p>
+  {% elif ai_enabled %}
+    <p class="muted small">Claude reads this problem's messages and about 30 log lines from up to three affected tests,
+      then explains what is probably going on and what to check next. Nothing is sent until you click.</p>
+  {% else %}
+    <p class="muted small">Turned off. To enable it, set <code>ANTHROPIC_API_KEY</code> in the <code>.env</code> file and restart VeriMind.
+      Everything else works without it.</p>
+  {% endif %}
+</section>

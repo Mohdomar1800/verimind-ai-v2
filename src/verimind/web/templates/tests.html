@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Tests · {{ run.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="crumbs"><a href="/">Runs</a> / <a href="/runs/{{ run.id }}">{{ run.name }}</a> /</p>
+    <h1>Tests</h1>
+    <p class="muted">Failing tests are listed first. Open one to read its log at the point where it went wrong.</p>
+  </div>
+</div>
+
+{# Filters apply as you type or choose; the URL updates so a filtered view can be bookmarked or shared. #}
+<form class="filters card" method="get" action="/runs/{{ run.id }}/tests"
+      hx-get="/runs/{{ run.id }}/tests" hx-target="#tests-table" hx-swap="outerHTML" hx-push-url="true"
+      hx-trigger="change, keyup changed delay:300ms from:input[name=q]">
+  <label class="field inline">
+    <span class="field-label">Result</span>
+    <select name="status">
+      <option value="" {{ 'selected' if not filters.status }}>All</option>
+      <option value="fail" {{ 'selected' if filters.status == 'fail' }}>Failed</option>
+      <option value="pass" {{ 'selected' if filters.status == 'pass' }}>Passed</option>
+      <option value="unknown" {{ 'selected' if filters.status == 'unknown' }}>Unclear</option>
+    </select>
+  </label>
+  <label class="field inline">
+    <span class="field-label">Block</span>
+    <select name="module">
+      <option value="">All blocks</option>
+      {% for m in modules %}<option value="{{ m }}" {{ 'selected' if filters.module == m }}>{{ m }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field inline">
+    <span class="field-label">Problem</span>
+    <select name="issue">
+      <option value="">Any</option>
+      {% for i in issues %}
+      <option value="{{ i.id }}" {{ 'selected' if filters.issue == i.id }}>#{{ i.rank }} {{ i.title[:60] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="field inline grow">
+    <span class="field-label">Search</span>
+    <input type="text" name="q" value="{{ filters.q }}" placeholder="Test name contains…">
+  </label>
+  <noscript><button class="button" type="submit">Apply</button></noscript>
+</form>
+
+{% include "_tests_table.html" %}
+{% endblock %}

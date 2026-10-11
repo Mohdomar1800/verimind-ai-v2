@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ test.test_name }} · {{ run.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="crumbs">
+      <a href="/">Runs</a> / <a href="/runs/{{ run.id }}">{{ run.name }}</a> /
+      {% if issue %}<a href="/runs/{{ run.id }}/issues/{{ issue.id }}">Problem #{{ issue.rank }}</a> /{% endif %}
+    </p>
+    <h1>{{ test.test_name }}</h1>
+    <p class="muted">
+      {% if test.status == 'fail' %}<span class="badge bad">Failed</span>
+      {% elif test.status == 'pass' %}<span class="badge ok">Passed</span>
+      {% else %}<span class="badge neutral">Unclear</span>{% endif %}
+      {% if test.seed is not none %}seed {{ test.seed }} · {% endif %}{{ test.module }} · {{ test.total_lines | plural("line") }} · {{ test.format }} format
+    </p>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="/api/runs/{{ run.id }}/tests/{{ test.id }}/log/raw">Download log</a>
+  </div>
+</div>
+
+<section class="card">
+  {% if test.root_line %}
+    <p><strong>Where it went wrong:</strong> line {{ test.root_line }}
+      {% if test.follow_on_errors %}<span class="muted">· {{ test.follow_on_errors | plural("follow-on error") }} after it, usually caused by this first one</span>{% endif %}</p>
+    <p><code>{{ test.root_message }}</code></p>
+  {% else %}
+    <p>{{ test.status_reason }}</p>
+  {% endif %}
+</section>
+
+<nav class="log-nav">
+  {% if earlier %}<a class="button secondary" href="?start={{ earlier }}">↑ Earlier lines</a>{% endif %}
+  {% if prev_error %}<a class="button secondary" href="?around={{ prev_error }}#L{{ prev_error }}">Previous error (line {{ prev_error }})</a>{% endif %}
+  {% if test.root_line %}<a class="button secondary" href="?around={{ test.root_line }}#L{{ test.root_line }}">Root cause</a>{% endif %}
+  {% if next_error %}<a class="button secondary" href="?around={{ next_error }}#L{{ next_error }}">Next error (line {{ next_error }})</a>{% endif %}
+  <form method="get" class="goto"><label>Go to line <input type="number" name="around" min="1" max="{{ window.total_lines }}"></label></form>
+  <span class="muted small">Showing lines {{ window.start | number }}–{{ window.end | number }} of {{ window.total_lines | number }} · {{ window.error_lines | length | plural("error line") }} in this log</span>
+</nav>
+
+<div class="logview" role="region" aria-label="Log lines">
+  {% for n, text in window.lines %}
+  <div id="L{{ n }}" class="logline{{ ' root' if n in root_lines }}{{ ' err' if n in error_set and n not in root_lines }}">
+    <a class="ln" href="#L{{ n }}">{{ n }}</a><span class="lt">{{ text }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+{% if later %}<p class="log-nav"><a class="button secondary" href="?start={{ later }}">↓ Later lines</a></p>{% endif %}
+{% endblock %}

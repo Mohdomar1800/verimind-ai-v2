@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Trends{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Trends</h1>
+    <p class="muted">How the regression is doing over time, and which design blocks keep failing. Showing the last {{ trend.points | length | plural("analyzed run") }}.</p>
+  </div>
+</div>
+
+{% if trend.points | length < 2 %}
+  <div class="card">
+    <p>Trends need at least two analyzed runs.</p>
+    <form method="post" action="/demo"><button class="button" type="submit">Load demo data</button></form>
+  </div>
+{% else %}
+
+<section class="card">
+  <h2>Failing tests per run</h2>
+  <p class="muted small">Bar height = failing tests. The colors split each run's problems by category; ● marks runs with new problems or regressions.</p>
+  <div class="barchart" role="img" aria-label="Failing tests per run">
+    {% for p in trend.points %}
+    {% set r = p.run %}
+    {% set height = (100 * r.failed / (trend.max_failed or 1)) | round %}
+    <a class="bar-col" href="/runs/{{ r.id }}" title="{{ r.name }}: {{ r.failed }} failing of {{ r.total_tests }}, {{ r.issue_count }} problems{% if p.new_issues %}, {{ p.new_issues }} new{% endif %}">
+      <span class="bar-value">{{ r.failed }}</span>
+      <span class="bar" style="height: {{ height }}%">
+        {% for cat in ['design', 'testbench', 'unknown', 'infrastructure'] %}
+          {% if r.by_category.get(cat) %}<span class="seg seg-{{ cat }}" style="flex: {{ r.by_category[cat] }}"></span>{% endif %}
+        {% endfor %}
+      </span>
+      <span class="bar-label">{% if p.new_issues %}<span class="new-dot" title="{{ p.new_issues }} new">●</span>{% endif %}#{{ loop.index }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  <div class="legend chart-legend">
+    {% for cat in ['design', 'testbench', 'infrastructure', 'unknown'] %}
+      {% set cat_label, cat_help = CATEGORY_LABELS[cat] %}
+      <span><span class="swatch seg-{{ cat }}"></span>{{ cat_label }}</span>
+    {% endfor %}
+  </div>
+</section>
+
+<section>
+  <h2>Where failures happen</h2>
+  <p class="muted small">Each cell is one design block in one run. Darker red = more of that block's tests failed. Hover for numbers.</p>
+  <div class="table-wrap">
+    <table class="table heatmap">
+      <thead>
+        <tr><th>Block</th>{% for p in trend.points %}<th class="num" title="{{ p.run.name }}"><a href="/runs/{{ p.run.id }}">#{{ loop.index }}</a></th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for m in trend.modules %}
+        <tr>
+          <td>{{ m }}</td>
+          {% for p in trend.points %}
+            {% set cell = trend.cells.get((m, p.run.id)) %}
+            {% if cell %}
+              {% set tests, failed = cell %}
+              {% set rate = failed / tests if tests else 0 %}
+              <td class="heat{{ ' zero' if failed == 0 }}" style="--rate: {{ '%.2f' | format(rate) }}" title="{{ m }} in {{ p.run.name }}: {{ failed }} of {{ tests }} failed">
+                <a href="/runs/{{ p.run.id }}/tests?module={{ m | urlencode }}&status=fail">{{ failed if failed else '' }}</a>
+              </td>
+            {% else %}
+              <td class="heat empty" title="No tests for this block in this run"></td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Tests most likely to fail next run</h2>
+  {% if not risk %}
+    <p class="muted">Predictions start once there are at least 3 analyzed runs.</p>
+  {% else %}
+    <p class="muted small">
+      Learned from {{ risk.runs_used | plural("run") }} of history: how often each test failed recently, whether it is on a
+      failing streak, and how its design block has been doing. Use it to decide what to run first, or which tests to watch.
+    </p>
+    {% if risk.backtest %}
+    {% set b = risk.backtest %}
+    <div class="alert info small">
+      <strong>How reliable is this?</strong> Replaying history {{ b.evaluated_runs | plural("time") }}, the top picks
+      caught {{ '%.0f' | format(100 * b.model_precision) }}% of the tests that really failed next, versus
+      {{ '%.0f' | format(100 * b.last_run_precision) }}% for "whatever failed last time" and
+      {{ '%.0f' | format(100 * b.failure_rate) }}% for guessing at random.
+      {% if b.model_auc and b.baseline_auc %}Its ranking of the whole test list scores {{ '%.2f' | format(b.model_auc) }} (1.0 = perfect,
+      0.5 = random) against {{ '%.2f' | format(b.baseline_auc) }} for the simple rule.{% endif %}
+    </div>
+    {% endif %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Test</th><th>Block</th><th>Chance of failing</th><th>Why</th></tr></thead>
+        <tbody>
+          {% for p in risk.predictions %}
+          <tr>
+            <td class="strong">{{ p.test }}</td>
+            <td>{{ p.module }}</td>
+            <td><div class="riskbar" title="{{ '%.0f' | format(100 * p.probability) }}%"><div style="width: {{ (100 * p.probability) | round }}%"></div></div>
+                <span class="small muted">{{ '%.0f' | format(100 * p.probability) }}%</span></td>
+            <td class="wrap small">{{ p.reasons | join("; ") or "—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small">"Chance of failing" comes from a logistic regression model. It is calibrated on this project's own history,
+      so it's a relative ranking signal more than an exact probability.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

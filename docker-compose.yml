@@ -1,0 +1,76 @@
+# Start everything with:  docker compose up --build
+# Then open http://localhost:8000
+
+x-app-env: &app-env
+  VERIMIND_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-verimind}:${POSTGRES_PASSWORD:-verimind}@db:5432/${POSTGRES_DB:-verimind}
+  VERIMIND_LOG_LEVEL: ${VERIMIND_LOG_LEVEL:-info}
+  VERIMIND_MAX_UPLOAD_MB: ${VERIMIND_MAX_UPLOAD_MB:-2048}
+  VERIMIND_ALLOWED_ORIGINS: ${VERIMIND_ALLOWED_ORIGINS:-[]}
+  # Team-specific log formats: put *.yaml files in the ./formats folder (see docs/log-formats.md).
+  VERIMIND_FORMATS_DIR: /data/formats
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-verimind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-verimind}
+      POSTGRES_DB: ${POSTGRES_DB:-verimind}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Creates/updates the database tables, then exits. The app and worker wait for it.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: verimind:latest
+    command: ["verimind", "db", "upgrade"]
+    environment: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    image: verimind:latest
+    command: ["verimind", "serve", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *app-env
+    ports:
+      # Only this computer can reach VeriMind by default. Set VERIMIND_BIND=0.0.0.0 to share it on your network.
+      - "${VERIMIND_BIND:-127.0.0.1}:${VERIMIND_PORT:-8000}:8000"
+    volumes:
+      - storage:/data/storage
+      - ./formats:/data/formats:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    image: verimind:latest
+    command: ["verimind", "worker"]
+    environment: *app-env
+    volumes:
+      - storage:/data/storage
+      - ./formats:/data/formats:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:

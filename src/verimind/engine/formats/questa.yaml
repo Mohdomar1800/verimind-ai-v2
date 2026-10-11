@@ -1,0 +1,54 @@
+name: questa
+description: Siemens Questa / ModelSim transcript (every line starts with "# ")
+extends: [common]
+
+detect:
+  - '^# vsim '
+  - '^# Loading work\.'
+  - '^# Start time: '
+
+test_name:
+  - '\+UVM_TESTNAME=(?P<test>\S+)'
+seed:
+  - '-sv_seed (?P<seed>\d+)'
+
+end_markers:
+  - '^# End time: '
+
+rules:
+  # # UVM_ERROR tb/scbd.sv(214) @ 8899 ns: uvm_test_top.env.scbd [SCBD_MISMATCH] Data mismatch ...
+  - name: uvm_message
+    contains: 'UVM_'
+    pattern: '^# (?P<severity>UVM_(?:INFO|WARNING|ERROR|FATAL)) (?:(?P<file>\S+)\((?P<file_line>\d+)\) )?@ (?P<time>\d+)(?: (?P<unit>[A-Za-z]+))?: (?P<source>\S+) \[(?P<msg_id>[^\]]+)\] (?P<message>.*)$'
+
+  # # ** Fatal: (SIGSEGV) Bad handle or reference.
+  - name: crash
+    pattern: '^# \*\* Fatal: \((?P<msg_id>SIGSEGV|SIGBUS|SIGABRT)\) (?P<message>.*)$'
+    kind: crash
+    severity: fatal
+    then:
+      - pattern: '^#\s+Time: (?P<time>\d+) (?P<unit>\w+).*$'
+        optional: true
+
+  # # ** Fatal: (vsim-3826) Unable to checkout a license ...
+  - name: tool_fatal
+    pattern: '^# \*\* Fatal: (?:\((?P<msg_id>[\w-]+)\) )?(?P<message>.*)$'
+    kind: tool
+    severity: fatal
+
+  # # ** Error: FIFO overflow: push while full
+  # #    Time: 1200 ns Started: 1180 ns  Scope: tb_top.dut.u_fifo.a_no_overflow File: rtl/fifo.sv Line: 45
+  # (an Error followed by a "Started: ... Scope:" line is an assertion failure)
+  - name: error
+    pattern: '^# \*\* Error: (?:\((?P<msg_id>[\w-]+)\) )?(?P<message>.*)$'
+    kind: tool
+    severity: error
+    then:
+      - pattern: '^#\s+Time: (?P<time>\d+) (?P<unit>\w+) Started: \S+ \w+\s+Scope: (?P<source>\S+) File: (?P<file>\S+) Line: (?P<file_line>\d+)$'
+        optional: true
+        kind: assertion
+
+  - name: warning
+    pattern: '^# \*\* Warning: (?:\((?P<msg_id>[\w-]+)\) )?(?P<message>.*)$'
+    kind: tool
+    severity: warning

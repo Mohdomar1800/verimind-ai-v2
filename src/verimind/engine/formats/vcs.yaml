@@ -1,0 +1,62 @@
+name: vcs
+description: Synopsys VCS simulation log
+extends: [common]
+
+detect:
+  - 'Chronologic VCS simulator'
+  - '^Command: \S*simv\b'
+  - 'Compiler version \S+; Runtime version'
+
+test_name:
+  - '\+UVM_TESTNAME=(?P<test>\S+)'
+seed:
+  - '\+ntb_random_seed=(?P<seed>\d+)'
+
+end_markers:
+  - 'V C S   S i m u l a t i o n   R e p o r t'
+
+rules:
+  # UVM_ERROR tb/scbd.sv(214) @ 11938000: uvm_test_top.env.scbd [SCBD_MISMATCH] Data mismatch ...
+  # (the "@" excludes summary lines such as "UVM_ERROR :    3")
+  - name: uvm_message
+    contains: 'UVM_'
+    pattern: '^(?P<severity>UVM_(?:INFO|WARNING|ERROR|FATAL)) (?:(?P<file>\S+)\((?P<file_line>\d+)\) )?@ (?P<time>\d+): (?P<source>\S+) \[(?P<msg_id>[^\]]+)\] (?P<message>.*)$'
+    time_unit: ps
+
+  # "rtl/fifo.sv", 45: tb_top.dut.u_fifo.a_no_overflow: started at 1180000ps failed at 1200000ps
+  #     Offending '!(push && full)'
+  # Error: "rtl/fifo.sv", 45: tb_top.dut.u_fifo.a_no_overflow: at time 1200000 ps
+  # FIFO overflow: push while full
+  - name: assertion
+    pattern: '^"(?P<file>[^"]+)", (?P<file_line>\d+): (?P<source>\S+): started at \d+\w+ failed at (?P<time>\d+)(?P<unit>[a-z]+)$'
+    kind: assertion
+    severity: error
+    then:
+      - pattern: '^\s+Offending ''(?P<expr>.*)''$'
+        optional: true
+      - pattern: '^Error: ".*'
+        optional: true
+      - pattern: '^(?!UVM_|"|\$finish)(?P<message>\S.*)$'
+        optional: true
+
+  - name: crash
+    pattern: '^Error-\[(?P<msg_id>SIGSEGV|SIGBUS|SIGABRT)\] (?P<message>.*)$'
+    kind: crash
+    severity: fatal
+    then:
+      - pattern: '^  (?P<detail>\S.*)$'
+        repeat: true
+
+  # Error-[LICENSE_FAIL] License checkout failed   (followed by indented detail lines)
+  - name: tool_error
+    pattern: '^Error-\[(?P<msg_id>[\w-]+)\] (?P<message>.*)$'
+    kind: tool
+    severity: error
+    then:
+      - pattern: '^  (?P<detail>\S.*)$'
+        repeat: true
+
+  - name: tool_warning
+    pattern: '^Warning-\[(?P<msg_id>[\w-]+)\] (?P<message>.*)$'
+    kind: tool
+    severity: warning

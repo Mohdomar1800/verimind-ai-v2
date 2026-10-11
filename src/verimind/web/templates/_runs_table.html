@@ -1,0 +1,39 @@
+{# Refreshes itself every 2 seconds while any run is still being analyzed. #}
+<div id="runs-table"
+     {% if any_active %}hx-get="/partials/runs" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Run</th>
+          <th>Status</th>
+          <th class="num">Tests</th>
+          <th class="num">Failed</th>
+          <th class="num">Problems found</th>
+          <th>Added</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        {% set label, tone = STATUS_LABELS[run.status] %}
+        <tr>
+          <td><a class="strong" href="/runs/{{ run.id }}">{{ run.name }}</a></td>
+          <td>
+            <span class="badge {{ tone }}">{{ label }}</span>
+            {% set job = jobs.get(run.id) %}
+            {% if job and run.status == 'processing' %}<span class="muted small">{{ job.progress }}%</span>{% endif %}
+          </td>
+          {% if run.status == 'done' %}
+          <td class="num">{{ run.total_tests | number }}</td>
+          <td class="num">{% if run.failed %}<span class="text-bad">{{ run.failed | number }}</span>{% else %}0{% endif %}</td>
+          <td class="num">{{ run.issue_count | number }}</td>
+          {% else %}
+          <td class="num muted">–</td><td class="num muted">–</td><td class="num muted">–</td>
+          {% endif %}
+          <td class="muted" title="{{ run.created_at.strftime('%Y-%m-%d %H:%M UTC') }}">{{ run.created_at | timeago }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

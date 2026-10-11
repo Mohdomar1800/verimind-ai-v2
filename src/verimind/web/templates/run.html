@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ run.name }}{% endblock %}
+
+{% block content %}
+{% set label, tone = STATUS_LABELS[run.status] %}
+<div class="page-head">
+  <div>
+    <p class="crumbs"><a href="/">Runs</a> /</p>
+    <h1>{{ run.name }}</h1>
+    <p class="muted">
+      <span class="badge {{ tone }}">{{ label }}</span>
+      {{ run.file_count | plural("log file") }} · {{ run.size_bytes | filesize }} · added {{ run.created_at | timeago }}
+    </p>
+  </div>
+  <div class="actions">
+    {% if run.status == 'done' %}
+    <details class="menu">
+      <summary class="button secondary">Download report</summary>
+      <div class="menu-items">
+        <a href="/api/runs/{{ run.id }}/export?format=markdown">Report (Markdown)</a>
+        <a href="/api/runs/{{ run.id }}/export?format=csv">Problems (CSV, for Excel)</a>
+        <a href="/api/runs/{{ run.id }}/export?format=json">Everything (JSON)</a>
+      </div>
+    </details>
+    {% endif %}
+    <details class="menu">
+      <summary class="button secondary">More</summary>
+      <div class="menu-items">
+        <form method="post" action="/runs/{{ run.id }}/reanalyze"><button type="submit">Analyze again</button></form>
+        <form method="post" action="/runs/{{ run.id }}/delete"
+              data-confirm="Delete this run and its log files? This cannot be undone.">
+          <button type="submit" class="danger">Delete run</button>
+        </form>
+      </div>
+    </details>
+  </div>
+</div>
+
+{% if run.status != 'done' %}
+  {% include "_run_progress.html" %}
+{% else %}
+
+<section class="headline card">
+  {% if run.failed == 0 %}
+    <h2 class="text-ok">All {{ run.total_tests | number }} tests passed.</h2>
+    <p class="muted">Nothing to debug in this run.</p>
+  {% else %}
+    <h2>
+      {{ run.failed | plural("failing test") }} and {{ run.error_lines | plural("error line") }}
+      come down to <span class="accent">{{ run.issue_count | plural("problem") }}</span>.
+    </h2>
+    <p class="muted">Start with problem #1. Open a problem to see why it's ranked there, every test it breaks, and the log lines.
+      <a href="/runs/{{ run.id }}/tests">Browse all tests →</a></p>
+  {% endif %}
+  <div class="stats">
+    <div class="stat"><span class="stat-value">{{ run.total_tests | number }}</span><span class="stat-label">tests</span></div>
+    <div class="stat"><span class="stat-value text-ok">{{ run.passed | number }}</span><span class="stat-label">passed</span></div>
+    <div class="stat"><span class="stat-value text-bad">{{ run.failed | number }}</span><span class="stat-label">failed</span></div>
+    {% if run.unknown %}<div class="stat"><span class="stat-value">{{ run.unknown | number }}</span><span class="stat-label">unclear</span></div>{% endif %}
+    <div class="stat"><span class="stat-value">{{ run.total_lines | number }}</span><span class="stat-label">log lines read</span></div>
+    <div class="stat"><span class="stat-value">{{ run.analysis_seconds | duration }}</span><span class="stat-label">to analyze</span></div>
+  </div>
+</section>
+
+{% if issues %}
+<section>
+  <div class="section-head">
+    <h2>Problems, most important first</h2>
+    <div class="legend">
+      {% for key, value in run.by_category.items() %}
+        {% set cat_label, cat_help = CATEGORY_LABELS.get(key, (key, '')) %}
+        <span class="cat cat-{{ key }}" title="{{ cat_help }}">{{ cat_label }}: {{ value }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <ol class="issues">
+    {% for issue in issues %}
+    {% set cat_label, cat_help = CATEGORY_LABELS.get(issue.category, (issue.category, '')) %}
+    {% set t = triage.get(issue.signature_id) %}
+    <li class="issue card">
+      <div class="issue-rank">#{{ issue.rank }}</div>
+      <div class="issue-body">
+        <div class="issue-top">
+          <span class="cat cat-{{ issue.category }}" title="{{ cat_help }}">{{ cat_label }}</span>
+          {% if issue.history in HISTORY_LABELS %}{% set h_label, h_tone, h_help = HISTORY_LABELS[issue.history] %}<span class="badge {{ h_tone }}" title="{{ h_help }}">{{ h_label }}</span>{% endif %}
+          {% if t and t.status != 'new' %}<span class="badge neutral">Triage: {{ t.status }}</span>{% endif %}
+          <span class="muted small">{{ issue.test_count | plural("test") }} affected</span>
+        </div>
+        <h3 class="issue-title"><a href="/runs/{{ run.id }}/issues/{{ issue.id }}">{{ issue.title | signature }}</a></h3>
+        <p class="issue-example"><code>{{ issue.example_message }}</code></p>
+        <details>
+          <summary>Why is this ranked #{{ issue.rank }}?</summary>
+          <ul class="reasons">{% for r in issue.reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+          {% if issue.location %}<p class="muted small">Reported from <code>{{ issue.location }}</code></p>{% endif %}
+          {% if issue.followed_by %}
+          <p class="muted small">Usually followed by: {% for f in issue.followed_by %}{{ f | signature }}{% if not loop.last %}; {% endif %}{% endfor %}</p>
+          {% endif %}
+        </details>
+      </div>
+      <div class="issue-score" title="Priority score, relative to the top problem">
+        <div class="scorebar"><div style="width: {{ (100 * issue.score / top_score) | round }}%"></div></div>
+        <span class="small muted">score {{ issue.score | round | int }}</span>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+{% if run.coverage %}
+<section class="card">
+  <div class="section-head">
+    <h2>Coverage</h2>
+    <a href="/runs/{{ run.id }}/coverage">See coverage holes and the fastest test set →</a>
+  </div>
+  {% if run.coverage.error %}
+    <p class="text-bad">{{ run.coverage.error }}</p>
+  {% else %}
+    <p>
+      <strong>{{ run.coverage.percent }}%</strong> of {{ run.coverage.total_bins | plural("coverage bin") }} hit.
+      {{ run.coverage.holes | length | plural("coverage hole") }} found.
+      Just <strong>{{ run.coverage.tests_for_target }}</strong> of {{ run.coverage.tests_total }} tests
+      ({{ '%.0f' | format(100 * run.coverage.cpu_for_target / (run.coverage.cpu_total or 1)) }}% of the compute time)
+      keep {{ (100 * run.coverage.target) | round | int }}% of this coverage.
+    </p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if modules %}
+<section>
+  <h2>Most affected design blocks</h2>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead><tr><th>Block</th><th class="num">Tests</th><th class="num">Failed</th><th>Pass rate</th></tr></thead>
+      <tbody>
+      {% for m in modules %}
+        <tr>
+          <td><a href="/runs/{{ run.id }}/tests?module={{ m.module | urlencode }}">{{ m.module }}</a></td>
+          <td class="num">{{ m.tests }}</td>
+          <td class="num text-bad">{{ m.failed }}</td>
+          <td><div class="passbar" title="{{ (m.pass_rate * 100) | round | int }}% passed"><div style="width: {{ (m.pass_rate * 100) | round }}%"></div></div></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

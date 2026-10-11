@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}VeriMind{% endblock %} · VeriMind</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}">
+  <script src="{{ url_for('static', path='vendor/htmx.min.js') }}" defer></script>
+  <script src="{{ url_for('static', path='js/app.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      VeriMind
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="/" class="{{ 'active' if active == 'runs' }}">Runs</a>
+      <a href="/trends" class="{{ 'active' if active == 'trends' }}">Trends</a>
+      <a href="/compare" class="{{ 'active' if active == 'compare' }}">Compare</a>
+      <a href="/library" class="{{ 'active' if active == 'library' }}">Problem library</a>
+      <a href="/upload" class="{{ 'active' if active == 'upload' }}">Upload logs</a>
+      <a href="/api/docs" class="subtle">API</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    {% if notice %}<div class="alert info" role="status">{{ notice }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">VeriMind v{{ app_version }} · Finds the root cause in RTL verification logs</footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

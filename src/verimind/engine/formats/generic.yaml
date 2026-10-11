@@ -1,0 +1,21 @@
+# Fallback used when no format's fingerprints match. Deliberately permissive: it recognizes UVM
+# messages with any prefix and common "ERROR:" / "| ERROR |" styles, so unknown logs still give
+# useful results. Add a dedicated format for best accuracy.
+name: generic
+description: Fallback for unrecognized logs (UVM messages and common ERROR/FATAL styles)
+extends: [common]
+
+rules:
+  - name: uvm_message
+    contains: 'UVM_'
+    pattern: '^\W{0,3}(?P<severity>UVM_(?:INFO|WARNING|ERROR|FATAL))(?: (?P<file>\S+)\((?P<file_line>\d+)\))? @ ?(?P<time>[\d.]+) ?(?P<unit>[a-zA-Z]+)?: (?P<source>\S+) \[(?P<msg_id>[^\]]+)\] (?P<message>.*)$'
+
+  # 2026-03-07T10:00:01Z | ERROR | module=aes | test=aes_01 | status=fail
+  - name: pipe_delimited
+    contains: '|'
+    pattern: '^[^|]*\|\s*(?P<severity>INFO|DEBUG|WARN|WARNING|ERROR|FATAL)\s*\|\s*(?P<message>.*)$'
+
+  # ERROR: something broke  /  ** Error: something broke  /  [FATAL] something broke
+  - name: keyword
+    pattern: '^\W{0,4}(?P<severity>ERROR|Error|FATAL|Fatal)\b\W{0,3}\s*(?P<message>\S.*)$'
+    kind: tool

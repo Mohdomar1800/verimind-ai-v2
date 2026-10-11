@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Problem library{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Problem library</h1>
+    <p class="muted">Every problem VeriMind has seen, across all runs. Triage notes are kept here, and a problem
+      you mark as a known issue is recognized automatically the next time it appears.</p>
+  </div>
+</div>
+
+<nav class="tabs" aria-label="Filter problems">
+  <a href="/library" class="{{ 'active' if show == 'all' }}">All ({{ counts.all }})</a>
+  <a href="/library?show=untriaged" class="{{ 'active' if show == 'untriaged' }}">Keeps coming back, not triaged ({{ counts.untriaged }})</a>
+  <a href="/library?show=triaged" class="{{ 'active' if show == 'triaged' }}">Triaged ({{ counts.triaged }})</a>
+</nav>
+
+{% if not entries %}
+  <div class="card muted">
+    {% if counts.all == 0 %}No problems yet. Upload logs or load the demo data to get started.
+    {% else %}Nothing in this view.{% endif %}
+  </div>
+{% else %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Problem</th><th>Triage</th><th class="num">Runs</th><th class="num">Tests broken</th><th>First seen</th><th>Last seen</th></tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      {% set cat_label, cat_help = CATEGORY_LABELS.get(e.category, (e.category, '')) %}
+      <tr>
+        <td class="wrap">
+          <span class="cat cat-{{ e.category }}" title="{{ cat_help }}">{{ cat_label }}</span>
+          <a class="issue-title" href="/runs/{{ e.last_run_id }}/issues/{{ e.last_issue_id }}">{{ e.title | signature }}</a>
+        </td>
+        <td>
+          {% if e.triage and e.triage.status != 'new' %}
+            <span class="badge neutral">{{ e.triage.status }}</span>
+            {% if e.triage.owner %}<div class="muted small">{{ e.triage.owner }}</div>{% endif %}
+            {% if e.triage.ticket %}<div class="muted small">{{ e.triage.ticket }}</div>{% endif %}
+          {% else %}<span class="muted small">not triaged</span>{% endif %}
+        </td>
+        <td class="num">{{ e.runs_seen }}</td>
+        <td class="num">{{ e.total_tests | number }}</td>
+        <td class="muted">{{ e.first_seen | timeago }}</td>
+        <td class="muted">{{ e.last_seen | timeago }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

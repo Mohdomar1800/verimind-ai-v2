@@ -1,0 +1,33 @@
+{# Saved with HTMX (the card swaps itself and confirms); without JavaScript it's a normal form post. #}
+<section class="card" id="triage-card">
+  <h2>Triage</h2>
+  <p class="muted small">Notes follow this problem into every future run where it appears.</p>
+  <form method="post" action="/runs/{{ run.id }}/issues/{{ issue.id }}/triage"
+        hx-post="/runs/{{ run.id }}/issues/{{ issue.id }}/triage" hx-target="#triage-card" hx-swap="outerHTML">
+    <label class="field">
+      <span class="field-label">Status</span>
+      <select name="status">
+        {% for value, label in triage_choices %}
+        <option value="{{ value }}" {{ 'selected' if (triage.status if triage else 'new') == value }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">Owner <span class="muted">(optional)</span></span>
+      <input type="text" name="owner" maxlength="100" value="{{ triage.owner or '' if triage else '' }}" placeholder="Who is looking at it">
+    </label>
+    <label class="field">
+      <span class="field-label">Ticket <span class="muted">(optional)</span></span>
+      <input type="text" name="ticket" maxlength="300" value="{{ triage.ticket or '' if triage else '' }}" placeholder="e.g. JIRA-1234 or a link">
+    </label>
+    <label class="field">
+      <span class="field-label">Notes <span class="muted">(optional)</span></span>
+      <textarea name="note" rows="3" maxlength="10000" placeholder="What you found, how to reproduce…">{{ triage.note if triage else '' }}</textarea>
+    </label>
+    <div class="form-actions">
+      <button class="button" type="submit">Save</button>
+      {% if saved %}<span class="text-ok small" role="status">Saved.</span>
+      {% elif triage and triage.updated_at %}<span class="muted small">Last updated {{ triage.updated_at | timeago }}</span>{% endif %}
+    </div>
+  </form>
+</section>

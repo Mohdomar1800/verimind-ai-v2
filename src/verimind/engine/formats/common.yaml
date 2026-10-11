@@ -1,0 +1,26 @@
+# Shared by every simulator format through `extends: [common]`.
+# Covers messages printed by UVM testbenches and by the compute farm, independent of the simulator.
+name: common
+description: Messages shared by all formats (UVM verdict banners, farm and OS kill messages).
+abstract: true
+
+test_name:
+  - 'UVM_INFO .*\[RNTST\] Running test (?P<test>\w+)'
+
+verdict:
+  pass:
+    - '\*\* TEST PASSED \*\*'
+  fail:
+    - '\*\* TEST FAILED \*\*'
+
+rules:
+  - name: farm_kill
+    contains: '*** Job terminated'
+    pattern: '^\*\*\* Job terminated by (?P<source>[\w ]+): (?P<message>.*?) \*\*\*$'
+    kind: crash
+    severity: fatal
+
+  - name: os_kill
+    pattern: '^(?P<message>Killed|Segmentation fault(?: \(core dumped\))?)\s*$'
+    kind: crash
+    severity: fatal
