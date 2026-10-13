@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -7,6 +8,12 @@ from typer.testing import CliRunner
 from verimind.cli import app
 
 runner = CliRunner()
+
+
+def plain(text: str) -> str:
+    """Remove terminal colour codes. Typer colours its error boxes when it detects CI (GITHUB_ACTIONS),
+    and the codes can split words such as --force."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 def test_generate_creates_dataset_and_protects_existing_folders(tmp_path: Path) -> None:
@@ -19,7 +26,7 @@ def test_generate_creates_dataset_and_protects_existing_folders(tmp_path: Path) 
 
     again = runner.invoke(app, args)
     assert again.exit_code != 0
-    assert "--force" in again.output
+    assert "--force" in plain(again.output)
 
     forced = runner.invoke(app, [*args, "--force"])
     assert forced.exit_code == 0, forced.output
