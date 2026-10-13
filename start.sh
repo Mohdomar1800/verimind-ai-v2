@@ -8,6 +8,19 @@ fail() {
   exit 1
 }
 
+# Opening the browser is a convenience: it must never make a successful start look like a failure
+# (servers and CI machines have no browser). `open` is the macOS command; Linux desktops use xdg-open.
+open_browser() {
+  if [ "$no_browser" = 1 ] || [ -n "${CI:-}" ]; then return 0; fi
+  case "$(uname -s)" in
+    Darwin) open "$1" >/dev/null 2>&1 ;;
+    *) command -v xdg-open >/dev/null 2>&1 && xdg-open "$1" >/dev/null 2>&1 ;;
+  esac
+}
+
+no_browser=0
+[ "${1:-}" = "--no-browser" ] && no_browser=1
+
 echo "Starting VeriMind..."
 
 command -v docker >/dev/null 2>&1 \
@@ -41,9 +54,7 @@ for _ in $(seq 1 90); do
   if curl -fsS "$health_url" >/dev/null 2>&1; then
     printf '\n\n\033[32mVeriMind is running at %s\033[0m\n' "$url"
     echo "To stop it later, run ./stop.sh (your data is kept)."
-    if command -v open >/dev/null 2>&1; then open "$url"
-    elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 || true
-    fi
+    open_browser "$url" || echo "Open $url in your browser."
     exit 0
   fi
   printf "."

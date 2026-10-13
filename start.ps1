@@ -62,4 +62,6 @@ if (-not $ready) {
 Write-Host ""
 Write-Host "VeriMind is running at $url" -ForegroundColor Green
 Write-Host "To stop it later, double-click stop.bat (your data is kept)."
-if (-not $NoBrowser) { Start-Process $url }
+if (-not $NoBrowser) {
+    try { Start-Process $url -ErrorAction Stop } catch { Write-Host "Open $url in your browser." }
+}
